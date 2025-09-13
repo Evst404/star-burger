@@ -1,6 +1,7 @@
+import json
 from django.http import JsonResponse
 from django.templatetags.static import static
-
+from django.views.decorators.csrf import csrf_exempt
 
 from .models import Product
 
@@ -57,6 +58,13 @@ def product_list_api(request):
     })
 
 
+@csrf_exempt  # только для теста
 def register_order(request):
-    # TODO это лишь заглушка
-    return JsonResponse({})
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)  # получаем JSON из запроса
+            print("Полученные данные заказа:", data)  # выводим в консоль сервера
+            return JsonResponse({"status": "ok"})  # отправляем ответ фронтенду
+        except json.JSONDecodeError:
+            return JsonResponse({"status": "error", "message": "Неверный JSON"}, status=400)
+    return JsonResponse({"status": "error", "message": "Только POST"}, status=405)
