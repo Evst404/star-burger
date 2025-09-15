@@ -2,8 +2,8 @@ import json
 from django.http import JsonResponse
 from django.templatetags.static import static
 from django.views.decorators.csrf import csrf_exempt
-
-from .models import Product
+from django.db import transaction
+from .models import Product, Order, OrderItem
 
 
 def banners_list_api(request):
@@ -58,13 +58,34 @@ def product_list_api(request):
     })
 
 
-@csrf_exempt  # только для теста
+@csrf_exempt
 def register_order(request):
     if request.method == "POST":
         try:
-            data = json.loads(request.body)  # получаем JSON из запроса
-            print("Полученные данные заказа:", data)  # выводим в консоль сервера
-            return JsonResponse({"status": "ok"})  # отправляем ответ фронтенду
+            data = json.loads(request.body)
+            print("Полученные данные заказа:", data)
+
+            with transaction.atomic():
+                order = Order.objects.create(
+                    firstname=data['firstname'],
+                    lastname=data['lastname'],
+                    phonenumber=data['phonenumber'],
+                    address=data['address']
+                )
+
+                for item in data['products']:
+                    product = Product.objects.get(id=item['product'])
+                    OrderItem.objects.create(
+                        order=order,
+                        product=product,
+                        quantity=item['quantity']
+                    )
+
+            return JsonResponse({"status": "ok"})
         except json.JSONDecodeError:
             return JsonResponse({"status": "error", "message": "Неверный JSON"}, status=400)
+        except Product.DoesNotExist:
+            return JsonResponse({"status": "error", "message": "Продукт не найден"}, status=400)
+        except KeyError as e:
+            return JsonResponse({"status": "error", "message": f"Отсутствует поле: {e}"}, status=400)
     return JsonResponse({"status": "error", "message": "Только POST"}, status=405)
