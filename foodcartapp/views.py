@@ -1,14 +1,15 @@
-import json
-from django.http import JsonResponse
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 from django.templatetags.static import static
-from django.views.decorators.csrf import csrf_exempt
-from django.db import transaction
-from .models import Product, Order, OrderItem
+from .models import Product, Order
+from .serializers import OrderSerializer
 
 
+@api_view(['GET'])
 def banners_list_api(request):
     # FIXME move data to db?
-    return JsonResponse([
+    return Response([
         {
             'title': 'Burger',
             'src': static('burger.jpg'),
@@ -24,18 +25,14 @@ def banners_list_api(request):
             'src': static('tasty.jpg'),
             'text': 'Food is incomplete without a tasty dessert',
         }
-    ], safe=False, json_dumps_params={
-        'ensure_ascii': False,
-        'indent': 4,
-    })
+    ])
 
 
+@api_view(['GET'])
 def product_list_api(request):
     products = Product.objects.select_related('category').available()
-
-    dumped_products = []
-    for product in products:
-        dumped_product = {
+    serialized_products = [
+        {
             'id': product.id,
             'name': product.name,
             'price': product.price,
@@ -51,41 +48,20 @@ def product_list_api(request):
                 'name': product.name,
             }
         }
-        dumped_products.append(dumped_product)
-    return JsonResponse(dumped_products, safe=False, json_dumps_params={
-        'ensure_ascii': False,
-        'indent': 4,
-    })
+        for product in products
+    ]
+    return Response(serialized_products)
 
 
-@csrf_exempt
+@api_view(['GET', 'POST'])
 def register_order(request):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            print("Полученные данные заказа:", data)
-
-            with transaction.atomic():
-                order = Order.objects.create(
-                    firstname=data['firstname'],
-                    lastname=data['lastname'],
-                    phonenumber=data['phonenumber'],
-                    address=data['address']
-                )
-
-                for item in data['products']:
-                    product = Product.objects.get(id=item['product'])
-                    OrderItem.objects.create(
-                        order=order,
-                        product=product,
-                        quantity=item['quantity']
-                    )
-
-            return JsonResponse({"status": "ok"})
-        except json.JSONDecodeError:
-            return JsonResponse({"status": "error", "message": "Неверный JSON"}, status=400)
-        except Product.DoesNotExist:
-            return JsonResponse({"status": "error", "message": "Продукт не найден"}, status=400)
-        except KeyError as e:
-            return JsonResponse({"status": "error", "message": f"Отсутствует поле: {e}"}, status=400)
-    return JsonResponse({"status": "error", "message": "Только POST"}, status=405)
+    if request.method == 'POST':
+        serializer = OrderSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            print("Полученные данные заказа:", serializer.validated_data)
+            return Response({"status": "ok"}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    elif request.method == 'GET':
+        # Просто возвращаем пустой ответ, DRF сам отобразит Browsable API
+        return Response({})
