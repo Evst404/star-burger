@@ -1,17 +1,28 @@
 from rest_framework import serializers
+from phonenumber_field.phonenumber import PhoneNumber
 from .models import Order, OrderItem, Product
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    quantity = serializers.IntegerField(min_value=1)
 
     class Meta:
         model = OrderItem
         fields = ['product', 'quantity']
 
+    def validate_quantity(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Количество должно быть больше 0.")
+        return value
+
 
 class OrderSerializer(serializers.ModelSerializer):
     products = OrderItemSerializer(many=True, source='items', allow_empty=False)
+    firstname = serializers.CharField(max_length=50, allow_blank=False)
+    lastname = serializers.CharField(max_length=50, allow_blank=False)
+    phonenumber = serializers.CharField(allow_blank=False)
+    address = serializers.CharField(max_length=200, allow_blank=False)
 
     class Meta:
         model = Order
@@ -20,6 +31,32 @@ class OrderSerializer(serializers.ModelSerializer):
     def validate_products(self, value):
         if not isinstance(value, list):
             raise serializers.ValidationError("Ожидался list со значениями, но был получен \"{}\"".format(type(value).__name__))
+        return value
+
+    def validate_firstname(self, value):
+        if not isinstance(value, str):
+            raise serializers.ValidationError("Not a valid string.")
+        return value
+
+    def validate_lastname(self, value):
+        if not isinstance(value, str):
+            raise serializers.ValidationError("Not a valid string.")
+        return value
+
+    def validate_phonenumber(self, value):
+        if not value:
+            raise serializers.ValidationError("Это поле не может быть пустым.")
+        try:
+            phone_number = PhoneNumber.from_string(value)
+            if not phone_number.is_valid():
+                raise serializers.ValidationError("Введен некорректный номер телефона.")
+        except Exception:
+            raise serializers.ValidationError("Введен некорректный номер телефона.")
+        return value
+
+    def validate_address(self, value):
+        if not isinstance(value, str):
+            raise serializers.ValidationError("Not a valid string.")
         return value
 
     def create(self, validated_data):
