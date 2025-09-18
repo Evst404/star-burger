@@ -17,8 +17,17 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return value
 
 
+class OrderReadSerializer(serializers.ModelSerializer):
+    product = serializers.ReadOnlyField(source='product.name')
+
+    class Meta:
+        model = OrderItem
+        fields = ['product', 'quantity']
+
+
 class OrderSerializer(serializers.ModelSerializer):
-    products = OrderItemSerializer(many=True, source='items', allow_empty=False)
+    products = OrderItemSerializer(many=True, source='items', allow_empty=False, write_only=True)
+    items = OrderReadSerializer(many=True, read_only=True)
     firstname = serializers.CharField(max_length=50, allow_blank=False)
     lastname = serializers.CharField(max_length=50, allow_blank=False)
     phonenumber = serializers.CharField(allow_blank=False)
@@ -26,7 +35,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ['firstname', 'lastname', 'phonenumber', 'address', 'products']
+        fields = ['id', 'firstname', 'lastname', 'phonenumber', 'address', 'products', 'items']
 
     def validate_products(self, value):
         if not isinstance(value, list):
@@ -61,7 +70,6 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
-        # Преобразуем phonenumber в строку для модели
         if isinstance(validated_data['phonenumber'], PhoneNumber):
             validated_data['phonenumber'] = str(validated_data['phonenumber'])
         order = Order.objects.create(**validated_data)

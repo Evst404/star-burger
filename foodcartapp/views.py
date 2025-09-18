@@ -58,10 +58,9 @@ def register_order(request):
     if request.method == 'POST':
         serializer = OrderSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            order = serializer.save()
             print("Полученные данные заказа:", serializer.validated_data)
-            return Response({"status": "ok"}, status=status.HTTP_201_CREATED)
+            return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     elif request.method == 'GET':
-        # Просто возвращаем пустой ответ, DRF сам отобразит Browsable API
         return Response({})
