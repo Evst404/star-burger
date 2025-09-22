@@ -34,10 +34,11 @@ class OrderSerializer(serializers.ModelSerializer):
     lastname = serializers.CharField(max_length=50, allow_blank=False)
     phonenumber = serializers.CharField(allow_blank=False)
     address = serializers.CharField(max_length=200, allow_blank=False)
+    status = serializers.CharField(read_only=True)
 
     class Meta:
         model = Order
-        fields = ['id', 'firstname', 'lastname', 'phonenumber', 'address', 'products', 'items']
+        fields = ['id', 'firstname', 'lastname', 'phonenumber', 'address', 'products', 'items', 'status']
 
     def validate_products(self, value):
         if not isinstance(value, list):
@@ -71,7 +72,7 @@ class OrderSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        with transaction.atomic():  
+        with transaction.atomic():
             items_data = validated_data.pop('items')
             if isinstance(validated_data['phonenumber'], PhoneNumber):
                 validated_data['phonenumber'] = str(validated_data['phonenumber'])

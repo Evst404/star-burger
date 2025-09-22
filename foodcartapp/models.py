@@ -16,7 +16,7 @@ class Restaurant(models.Model):
         max_length=100,
         blank=True,
         null=False,
-        default=''  # Для пустых строк вместо null
+        default=''
     )
     contact_phone = models.CharField(
         verbose_name='контактный телефон',
@@ -147,6 +147,13 @@ class OrderQuerySet(models.QuerySet):
 
 
 class Order(models.Model):
+    STATUS_CHOICES = [
+        ('NEW', 'Принят'),
+        ('COOKING', 'Готовится'),
+        ('DELIVERING', 'Доставляется'),
+        ('COMPLETED', 'Завершён'),
+    ]
+
     firstname = models.CharField(
         verbose_name='Имя',
         max_length=50,
@@ -172,6 +179,13 @@ class Order(models.Model):
         max_length=200,
         blank=False,
         null=False,
+        db_index=True
+    )
+    status = models.CharField(
+        verbose_name='Статус',
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='NEW',
         db_index=True
     )
 

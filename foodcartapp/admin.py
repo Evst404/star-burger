@@ -15,7 +15,7 @@ class RestaurantMenuItemInline(admin.TabularInline):
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ('price',)  # Только price нередактируемое
+    readonly_fields = ('price',)
 
 
 @admin.register(Restaurant)
@@ -110,19 +110,19 @@ class ProductCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'firstname', 'lastname', 'phonenumber', 'address')
+    list_display = ('id', 'firstname', 'lastname', 'phonenumber', 'address', 'status', 'get_status_display')
+    list_filter = ('status',)
     search_fields = ('id', 'firstname', 'lastname', 'phonenumber', 'address')
     inlines = [OrderItemInline]
+    fields = ('firstname', 'lastname', 'phonenumber', 'address', 'status')
 
     def save_formset(self, request, form, formset, change):
         with transaction.atomic():
             instances = formset.save(commit=False)
             for instance in instances:
                 if isinstance(instance, OrderItem):
-                    # Для новых или изменённых позиций обновляем price
                     instance.price = instance.product.price
                 instance.save()
-            # Удаляем позиции, помеченные для удаления
             for obj in formset.deleted_objects:
                 obj.delete()
             formset.save_m2m()
