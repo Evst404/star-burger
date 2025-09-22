@@ -17,6 +17,9 @@
       <th>Клиент</th>
       <th>Телефон</th>
       <th>Адрес доставки</th>
+      <th>Продукты</th>
+      <th>Стоимость</th>
+      <th>Редактировать</th>
     </tr>
 
     {% for item in order_items %}
@@ -25,10 +28,21 @@
         <td>{{ item.firstname }} {{ item.lastname }}</td>
         <td>{{ item.phonenumber }}</td>
         <td>{{ item.address }}</td>
+        <td>
+          {% for order_item in item.items.all %}
+            {{ order_item.product.name }} ({{ order_item.quantity }} шт., {{ order_item.price|floatformat:2 }} ₽){% if not forloop.last %}, {% endif %}
+          {% empty %}
+            Нет позиций
+          {% endfor %}
+        </td>
+        <td>{{ item.total_price|floatformat:2|default:"0.00" }} ₽</td>
+        <td>
+          <a href="{% url 'admin:foodcartapp_order_change' item.id %}?next={{ request.path|urlencode }}">Редактировать</a>
+        </td>
       </tr>
     {% empty %}
       <tr>
-        <td colspan="4">Нет заказов</td>
+        <td colspan="7">Нет заказов</td>
       </tr>
     {% endfor %}
    </table>

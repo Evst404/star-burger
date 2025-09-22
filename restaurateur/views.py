@@ -90,7 +90,7 @@ def view_restaurants(request):
 
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_orders(request):
-    orders = Order.objects.all().order_by('-id')
+    orders = Order.objects.with_total_price().prefetch_related('items__product').order_by('-id')
     return render(request, template_name='order_items.html', context={
         'order_items': orders
     })

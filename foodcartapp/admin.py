@@ -1,8 +1,9 @@
 from django.contrib import admin
-from django.shortcuts import reverse
+from django.shortcuts import reverse, redirect
 from django.templatetags.static import static
 from django.utils.html import format_html
-
+from django.db import transaction
+from django.utils.http import url_has_allowed_host_and_scheme
 from .models import Product, ProductCategory, Restaurant, RestaurantMenuItem, Order, OrderItem
 
 
@@ -14,7 +15,7 @@ class RestaurantMenuItemInline(admin.TabularInline):
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ('product', 'quantity')
+    readonly_fields = ('price',)  # Только price нередактируемое
 
 
 @admin.register(Restaurant)
@@ -113,8 +114,31 @@ class OrderAdmin(admin.ModelAdmin):
     search_fields = ('id', 'firstname', 'lastname', 'phonenumber', 'address')
     inlines = [OrderItemInline]
 
+    def save_formset(self, request, form, formset, change):
+        with transaction.atomic():
+            instances = formset.save(commit=False)
+            for instance in instances:
+                if isinstance(instance, OrderItem):
+                    # Для новых или изменённых позиций обновляем price
+                    instance.price = instance.product.price
+                instance.save()
+            # Удаляем позиции, помеченные для удаления
+            for obj in formset.deleted_objects:
+                obj.delete()
+            formset.save_m2m()
+
+    def response_change(self, request, obj):
+        next_url = request.GET.get('next')
+        if next_url and url_has_allowed_host_and_scheme(
+            url=next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure()
+        ):
+            return redirect(next_url)
+        return super().response_change(request, obj)
+
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
-    list_display = ('order', 'product', 'quantity')
+    list_display = ('order', 'product', 'quantity', 'price')
     search_fields = ('order__id', 'product__name')

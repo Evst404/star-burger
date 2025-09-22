@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 from phonenumber_field.phonenumber import PhoneNumber
 from .models import Order, OrderItem, Product
@@ -9,7 +10,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ['product', 'quantity']
+        fields = ['product', 'quantity', 'price']
+        read_only_fields = ['price']
 
     def validate_quantity(self, value):
         if value <= 0:
@@ -22,7 +24,7 @@ class OrderReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ['product', 'quantity']
+        fields = ['product', 'quantity', 'price']
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -69,10 +71,17 @@ class OrderSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        items_data = validated_data.pop('items')
-        if isinstance(validated_data['phonenumber'], PhoneNumber):
-            validated_data['phonenumber'] = str(validated_data['phonenumber'])
-        order = Order.objects.create(**validated_data)
-        for item_data in items_data:
-            OrderItem.objects.create(order=order, **item_data)
-        return order
+        with transaction.atomic():  
+            items_data = validated_data.pop('items')
+            if isinstance(validated_data['phonenumber'], PhoneNumber):
+                validated_data['phonenumber'] = str(validated_data['phonenumber'])
+            order = Order.objects.create(**validated_data)
+            for item_data in items_data:
+                product = item_data['product']
+                OrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=item_data['quantity'],
+                    price=product.price
+                )
+            return order
