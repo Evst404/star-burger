@@ -20,6 +20,7 @@
       <th>Продукты</th>
       <th>Стоимость</th>
       <th>Статус</th>
+      <th>Комментарий</th>
       <th>Редактировать</th>
     </tr>
 
@@ -38,13 +39,14 @@
         </td>
         <td>{{ item.total_price|floatformat:2|default:"0.00" }} ₽</td>
         <td>{{ item.get_status_display }}</td>
+        <td>{{ item.comment|default:"—" }}</td>
         <td>
           <a href="{% url 'admin:foodcartapp_order_change' item.id %}?next={{ request.path|urlencode }}">Редактировать</a>
         </td>
       </tr>
     {% empty %}
       <tr>
-        <td colspan="8">Нет заказов</td>
+        <td colspan="9">Нет заказов</td>
       </tr>
     {% endfor %}
    </table>
