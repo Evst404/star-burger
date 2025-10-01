@@ -110,11 +110,12 @@ class ProductCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'firstname', 'lastname', 'phonenumber', 'address', 'status', 'get_status_display', 'comment')
-    list_filter = ('status',)
+    list_display = ('id', 'firstname', 'lastname', 'phonenumber', 'address', 'status', 'get_status_display', 'comment', 'created_at', 'called_at', 'delivered_at', 'payment_method', 'get_payment_method_display')
+    list_filter = ('status', 'created_at', 'called_at', 'delivered_at', 'payment_method')
     search_fields = ('id', 'firstname', 'lastname', 'phonenumber', 'address', 'comment')
     inlines = [OrderItemInline]
-    fields = ('firstname', 'lastname', 'phonenumber', 'address', 'status', 'comment')
+    fields = ('firstname', 'lastname', 'phonenumber', 'address', 'status', 'comment', 'created_at', 'called_at', 'delivered_at', 'payment_method')
+    readonly_fields = ('created_at',)
 
     def save_formset(self, request, form, formset, change):
         with transaction.atomic():

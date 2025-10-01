@@ -36,10 +36,18 @@ class OrderSerializer(serializers.ModelSerializer):
     address = serializers.CharField(max_length=200, allow_blank=False)
     status = serializers.CharField(read_only=True)
     comment = serializers.CharField(allow_blank=True, required=False)
+    created_at = serializers.DateTimeField(read_only=True)
+    called_at = serializers.DateTimeField(read_only=True)
+    delivered_at = serializers.DateTimeField(read_only=True)
+    payment_method = serializers.ChoiceField(
+        choices=Order.PAYMENT_METHOD_CHOICES,
+        default='CASH',
+        required=False
+    )
 
     class Meta:
         model = Order
-        fields = ['id', 'firstname', 'lastname', 'phonenumber', 'address', 'products', 'items', 'status', 'comment']
+        fields = ['id', 'firstname', 'lastname', 'phonenumber', 'address', 'products', 'items', 'status', 'comment', 'created_at', 'called_at', 'delivered_at', 'payment_method']
 
     def validate_products(self, value):
         if not isinstance(value, list):

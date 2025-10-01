@@ -21,6 +21,10 @@
       <th>Стоимость</th>
       <th>Статус</th>
       <th>Комментарий</th>
+      <th>Дата создания</th>
+      <th>Дата звонка</th>
+      <th>Дата доставки</th>
+      <th>Способ оплаты</th>
       <th>Редактировать</th>
     </tr>
 
@@ -40,13 +44,17 @@
         <td>{{ item.total_price|floatformat:2|default:"0.00" }} ₽</td>
         <td>{{ item.get_status_display }}</td>
         <td>{{ item.comment|default:"—" }}</td>
+        <td>{{ item.created_at|date:"Y-m-d H:i" }}</td>
+        <td>{{ item.called_at|date:"Y-m-d H:i"|default:"—" }}</td>
+        <td>{{ item.delivered_at|date:"Y-m-d H:i"|default:"—" }}</td>
+        <td>{{ item.get_payment_method_display }}</td>
         <td>
           <a href="{% url 'admin:foodcartapp_order_change' item.id %}?next={{ request.path|urlencode }}">Редактировать</a>
         </td>
       </tr>
     {% empty %}
       <tr>
-        <td colspan="9">Нет заказов</td>
+        <td colspan="13">Нет заказов</td>
       </tr>
     {% endfor %}
    </table>
