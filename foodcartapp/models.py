@@ -2,6 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator
 from django.db.models import F, Sum
 from phonenumber_field.modelfields import PhoneNumberField
+from geopy.distance import geodesic
 
 
 class Restaurant(models.Model):
@@ -25,6 +26,8 @@ class Restaurant(models.Model):
         null=False,
         default=''
     )
+    latitude = models.FloatField(verbose_name='широта', null=True, blank=True)
+    longitude = models.FloatField(verbose_name='долгота', null=True, blank=True)
 
     class Meta:
         verbose_name = 'ресторан'
@@ -230,6 +233,16 @@ class Order(models.Model):
         null=True,
         blank=True,
         db_index=True
+    )
+    latitude = models.FloatField(
+        verbose_name='Широта адреса доставки',
+        null=True,
+        blank=True
+    )
+    longitude = models.FloatField(
+        verbose_name='Долгота адреса доставки',
+        null=True,
+        blank=True
     )
 
     objects = OrderQuerySet.as_manager()

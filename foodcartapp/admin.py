@@ -5,6 +5,10 @@ from django.utils.html import format_html
 from django.db import transaction
 from django.utils.http import url_has_allowed_host_and_scheme
 from .models import Product, ProductCategory, Restaurant, RestaurantMenuItem, Order, OrderItem
+import requests
+from django.conf import settings
+from places.models import Place
+from django.utils import timezone
 
 
 class RestaurantMenuItemInline(admin.TabularInline):
@@ -33,6 +37,32 @@ class RestaurantAdmin(admin.ModelAdmin):
     inlines = [
         RestaurantMenuItemInline
     ]
+
+    def save_model(self, request, obj, form, change):
+        if form.changed_data and 'address' in form.changed_data:
+            try:
+                url = f"https://geocode-maps.yandex.ru/1.x/?apikey={settings.YANDEX_GEOCODER_API_KEY}&geocode={obj.address}&format=json"
+                response = requests.get(url)
+                response.raise_for_status()
+                data = response.json()
+                collection = data.get('response', {}).get('GeoObjectCollection', {})
+                if collection.get('metaDataProperty', {}).get('GeocoderMetaData', {}).get('found', 0) > 0:
+                    point = collection['featureMember'][0]['GeoObject']['Point']['pos']
+                    lon, lat = map(float, point.split())
+                    place, created = Place.objects.get_or_create(address=obj.address)
+                    place.latitude = lat
+                    place.longitude = lon
+                    place.last_updated = timezone.now()
+                    place.save()
+                    obj.latitude = lat
+                    obj.longitude = lon
+                else:
+                    obj.latitude = None
+                    obj.longitude = None
+            except (requests.exceptions.RequestException, KeyError, ValueError):
+                obj.latitude = None
+                obj.longitude = None
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Product)
@@ -114,10 +144,33 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ('status', 'created_at', 'called_at', 'delivered_at', 'payment_method', 'restaurant')
     search_fields = ('id', 'firstname', 'lastname', 'phonenumber', 'address', 'comment')
     inlines = [OrderItemInline]
-    fields = ('firstname', 'lastname', 'phonenumber', 'address', 'status', 'comment', 'created_at', 'called_at', 'delivered_at', 'payment_method', 'restaurant')
-    readonly_fields = ('created_at',)
+    fields = ('firstname', 'lastname', 'phonenumber', 'address', 'status', 'comment', 'payment_method', 'restaurant', 'called_at', 'delivered_at')
+    readonly_fields = ('created_at', 'latitude', 'longitude')
 
     def save_model(self, request, obj, form, change):
+        if form.changed_data and 'address' in form.changed_data:
+            try:
+                url = f"https://geocode-maps.yandex.ru/1.x/?apikey={settings.YANDEX_GEOCODER_API_KEY}&geocode={obj.address}&format=json"
+                response = requests.get(url)
+                response.raise_for_status()
+                data = response.json()
+                collection = data.get('response', {}).get('GeoObjectCollection', {})
+                if collection.get('metaDataProperty', {}).get('GeocoderMetaData', {}).get('found', 0) > 0:
+                    point = collection['featureMember'][0]['GeoObject']['Point']['pos']
+                    lon, lat = map(float, point.split())
+                    place, created = Place.objects.get_or_create(address=obj.address)
+                    place.latitude = lat
+                    place.longitude = lon
+                    place.last_updated = timezone.now()
+                    place.save()
+                    obj.latitude = lat
+                    obj.longitude = lon
+                else:
+                    obj.latitude = None
+                    obj.longitude = None
+            except (requests.exceptions.RequestException, KeyError, ValueError):
+                obj.latitude = None
+                obj.longitude = None
         if obj.restaurant and obj.status == 'NEW':
             obj.status = 'COOKING'
         super().save_model(request, obj, form, change)
