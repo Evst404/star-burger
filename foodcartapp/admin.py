@@ -110,12 +110,17 @@ class ProductCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'firstname', 'lastname', 'phonenumber', 'address', 'status', 'get_status_display', 'comment', 'created_at', 'called_at', 'delivered_at', 'payment_method', 'get_payment_method_display')
-    list_filter = ('status', 'created_at', 'called_at', 'delivered_at', 'payment_method')
+    list_display = ('id', 'firstname', 'lastname', 'phonenumber', 'address', 'status', 'get_status_display', 'comment', 'created_at', 'called_at', 'delivered_at', 'payment_method', 'get_payment_method_display', 'restaurant')
+    list_filter = ('status', 'created_at', 'called_at', 'delivered_at', 'payment_method', 'restaurant')
     search_fields = ('id', 'firstname', 'lastname', 'phonenumber', 'address', 'comment')
     inlines = [OrderItemInline]
-    fields = ('firstname', 'lastname', 'phonenumber', 'address', 'status', 'comment', 'created_at', 'called_at', 'delivered_at', 'payment_method')
+    fields = ('firstname', 'lastname', 'phonenumber', 'address', 'status', 'comment', 'created_at', 'called_at', 'delivered_at', 'payment_method', 'restaurant')
     readonly_fields = ('created_at',)
+
+    def save_model(self, request, obj, form, change):
+        if obj.restaurant and obj.status == 'NEW':
+            obj.status = 'COOKING'
+        super().save_model(request, obj, form, change)
 
     def save_formset(self, request, form, formset, change):
         with transaction.atomic():
@@ -137,6 +142,14 @@ class OrderAdmin(admin.ModelAdmin):
         ):
             return redirect(next_url)
         return super().response_change(request, obj)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'restaurant' and request.resolver_match.args:
+            order_id = request.resolver_match.args[0]
+            order = Order.objects.get(pk=order_id)
+            available_restaurants = order.available_restaurants()
+            kwargs['queryset'] = Restaurant.objects.filter(pk__in=[r.id for r in available_restaurants])
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 @admin.register(OrderItem)

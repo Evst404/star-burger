@@ -1,7 +1,7 @@
 from django.db import transaction
 from rest_framework import serializers
 from phonenumber_field.phonenumber import PhoneNumber
-from .models import Order, OrderItem, Product
+from .models import Order, OrderItem, Product, Restaurant
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -44,10 +44,15 @@ class OrderSerializer(serializers.ModelSerializer):
         default='CASH',
         required=False
     )
+    restaurant = serializers.PrimaryKeyRelatedField(
+        queryset=Restaurant.objects.all(),
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = Order
-        fields = ['id', 'firstname', 'lastname', 'phonenumber', 'address', 'products', 'items', 'status', 'comment', 'created_at', 'called_at', 'delivered_at', 'payment_method']
+        fields = ['id', 'firstname', 'lastname', 'phonenumber', 'address', 'products', 'items', 'status', 'comment', 'created_at', 'called_at', 'delivered_at', 'payment_method', 'restaurant']
 
     def validate_products(self, value):
         if not isinstance(value, list):

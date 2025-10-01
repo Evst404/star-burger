@@ -25,6 +25,7 @@
       <th>Дата звонка</th>
       <th>Дата доставки</th>
       <th>Способ оплаты</th>
+      <th>Ресторан</th>
       <th>Редактировать</th>
     </tr>
 
@@ -49,12 +50,26 @@
         <td>{{ item.delivered_at|date:"Y-m-d H:i"|default:"—" }}</td>
         <td>{{ item.get_payment_method_display }}</td>
         <td>
+          {% if item.restaurant %}
+            {{ item.restaurant.name }}
+          {% else %}
+            <details>
+              <summary>Доступные рестораны</summary>
+              {% for restaurant in item.available_restaurants_list %}
+                {{ restaurant.name }}{% if not forloop.last %}, {% endif %}
+              {% empty %}
+                Нет доступных ресторанов
+              {% endfor %}
+            </details>
+          {% endif %}
+        </td>
+        <td>
           <a href="{% url 'admin:foodcartapp_order_change' item.id %}?next={{ request.path|urlencode }}">Редактировать</a>
         </td>
       </tr>
     {% empty %}
       <tr>
-        <td colspan="13">Нет заказов</td>
+        <td colspan="14">Нет заказов</td>
       </tr>
     {% endfor %}
    </table>
