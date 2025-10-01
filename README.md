@@ -35,10 +35,6 @@ cd star-burger
 ```sh
 python --version
 ```
-**Важно!** Версия Python должна быть не ниже 3.10.
-
-Возможно, вместо команды `python` здесь и в остальных инструкциях этого README придётся использовать `python3`. Зависит это от операционной системы и от того, установлен ли у вас Python старой второй версии. 
-
 В каталоге проекта создайте виртуальное окружение:
 ```sh
 python -m venv venv
@@ -56,8 +52,13 @@ pip install -r requirements.txt
 
 Определите переменную окружения `SECRET_KEY`. Создать файл `.env` в каталоге `star_burger/` и положите туда такой код:
 ```sh
-SECRET_KEY=django-insecure-0if40nf4nf93n4
+SECRET_KEY=your-secret-key
+DEBUG=True
+ALLOWED_HOSTS=127.0.0.1,localhost
+DATABASE_URL=sqlite:///db.sqlite3
+YANDEX_GEOCODER_API_KEY=your_yandex_api_key
 ```
+Получите YANDEX_GEOCODER_API_KEY на https://developer.tech.yandex.ru/services/.
 
 Создайте файл базы данных SQLite и отмигрируйте её следующей командой:
 
@@ -147,6 +148,7 @@ Parcel будет следить за файлами в каталоге `bundle
 - `DEBUG` — дебаг-режим. Поставьте `False`.
 - `SECRET_KEY` — секретный ключ проекта. Он отвечает за шифрование на сайте. Например, им зашифрованы все пароли на вашем сайте.
 - `ALLOWED_HOSTS` — [см. документацию Django](https://docs.djangoproject.com/en/5.2/ref/settings/#allowed-hosts)
+- YANDEX_GEOCODER_API_KEY=your_yandex_api_key - Ключ для Гео
 
 ## Цели проекта
 
