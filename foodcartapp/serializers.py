@@ -41,8 +41,7 @@ class OrderSerializer(serializers.ModelSerializer):
     delivered_at = serializers.DateTimeField(read_only=True)
     payment_method = serializers.ChoiceField(
         choices=Order.PAYMENT_METHOD_CHOICES,
-        default='CASH',
-        required=False
+        required=True
     )
     restaurant = serializers.PrimaryKeyRelatedField(
         queryset=Restaurant.objects.all(),

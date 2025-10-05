@@ -1,13 +1,11 @@
 from django.db import models
-from django.utils import timezone
 
 
 class Place(models.Model):
     address = models.CharField(
         verbose_name='Адрес',
         max_length=200,
-        unique=True,
-        db_index=True
+        unique=True
     )
     latitude = models.FloatField(
         verbose_name='Широта',
@@ -21,7 +19,8 @@ class Place(models.Model):
     )
     last_updated = models.DateTimeField(
         verbose_name='Дата последнего обновления',
-        auto_now=True
+        null=True,
+        blank=True
     )
 
     class Meta:

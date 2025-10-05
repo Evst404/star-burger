@@ -2,17 +2,16 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.templatetags.static import static
-from .models import Product, Order
+from .models import Product
 from .serializers import OrderSerializer
 
 
 @api_view(['GET'])
 def banners_list_api(request):
-    # FIXME move data to db?
     return Response([
         {
             'title': 'Burger',
-            'src': static('burger.jpg'),
+            'src': static('food.jpg'),
             'text': 'Tasty Burger at your door step',
         },
         {
@@ -53,14 +52,11 @@ def product_list_api(request):
     return Response(serialized_products)
 
 
-@api_view(['GET', 'POST'])
+@api_view(['POST'])
 def register_order(request):
-    if request.method == 'POST':
-        serializer = OrderSerializer(data=request.data)
-        if serializer.is_valid():
-            order = serializer.save()
-            print("Полученные данные заказа:", serializer.validated_data)
-            return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    elif request.method == 'GET':
-        return Response({})
+    serializer = OrderSerializer(data=request.data)
+    if serializer.is_valid():
+        order = serializer.save()
+        print("Полученные данные заказа:", serializer.validated_data)
+        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

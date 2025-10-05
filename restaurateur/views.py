@@ -5,13 +5,11 @@ from django.urls import reverse_lazy
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import views as auth_views
-from foodcartapp.models import Product, Restaurant, Order, RestaurantMenuItem
+from foodcartapp.models import Product, Restaurant, Order
 from geopy.distance import geodesic
 from places.models import Place
-from django.utils import timezone
-from datetime import timedelta
-import requests
-from django.conf import settings
+from places.utils import geocode_addresses
+
 
 
 class Login(forms.Form):
@@ -87,60 +85,34 @@ def view_restaurants(request):
     })
 
 
-def geocode_address(address):
-    if not settings.YANDEX_GEOCODER_API_KEY:
-        return None, None
-    url = f"https://geocode-maps.yandex.ru/1.x/?apikey={settings.YANDEX_GEOCODER_API_KEY}&geocode={address}&format=json"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        data = response.json()
-        collection = data.get('response', {}).get('GeoObjectCollection', {})
-        if collection.get('metaDataProperty', {}).get('GeocoderMetaData', {}).get('found', 0) > 0:
-            point = collection['featureMember'][0]['GeoObject']['Point']['pos']
-            lon, lat = map(float, point.split())
-            return lat, lon
-        return None, None
-    except (requests.exceptions.RequestException, KeyError, ValueError):
-        return None, None
-
-
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_orders(request):
-    orders = Order.objects.with_total_price().prefetch_related('items__product', 'restaurant').exclude(status='COMPLETED').order_by('-id')
+    orders = Order.objects.with_total_price().with_available_restaurants().exclude(status='COMPLETED').order_by('-id')
+    
+    addresses = set()
     for order in orders:
+        addresses.add(order.address)
         order.available_restaurants_list = order.available_restaurants()
-        place, created = Place.objects.get_or_create(address=order.address)
-        if created or place.last_updated < timezone.now() - timedelta(days=30):
-            lat, lon = geocode_address(order.address)
-            place.latitude = lat
-            place.longitude = lon
-            place.last_updated = timezone.now()
-            place.save()
-            order.latitude = lat
-            order.longitude = lon
-        else:
-            order.latitude = place.latitude
-            order.longitude = place.longitude
         for restaurant in order.available_restaurants_list:
-            restaurant_place, created = Place.objects.get_or_create(address=restaurant.address)
-            if created or restaurant_place.last_updated < timezone.now() - timedelta(days=30):
-                lat, lon = geocode_address(restaurant.address)
-                restaurant_place.latitude = lat
-                restaurant_place.longitude = lon
-                restaurant_place.last_updated = timezone.now()
-                restaurant_place.save()
-                restaurant.latitude = lat
-                restaurant.longitude = lon
-            else:
-                restaurant.latitude = restaurant_place.latitude
-                restaurant.longitude = restaurant_place.longitude
+            addresses.add(restaurant.address)
+    
+    geocode_addresses(addresses)
+    
+    for order in orders:
+        order_place = Place.objects.get(address=order.address)
+        order.latitude = order_place.latitude
+        order.longitude = order_place.longitude
+        for restaurant in order.available_restaurants_list:
+            restaurant_place = Place.objects.get(address=restaurant.address)
+            restaurant.latitude = restaurant_place.latitude
+            restaurant.longitude = restaurant_place.longitude
             if order.latitude and order.longitude and restaurant.latitude and restaurant.longitude:
                 distance = geodesic((order.latitude, order.longitude), (restaurant.latitude, restaurant.longitude)).km
                 restaurant.distance_km = round(distance, 1)
             else:
                 restaurant.distance_km = None
         order.available_restaurants_list = sorted(order.available_restaurants_list, key=lambda r: r.distance_km or float('inf'))
+    
     return render(request, template_name='order_items.html', context={
         'order_items': orders
     })

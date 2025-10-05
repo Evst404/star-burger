@@ -1,8 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator
-from django.db.models import F, Sum
+from django.db.models import F, Sum, Count, Q
 from phonenumber_field.modelfields import PhoneNumberField
-from geopy.distance import geodesic
 
 
 class Restaurant(models.Model):
@@ -26,8 +25,6 @@ class Restaurant(models.Model):
         null=False,
         default=''
     )
-    latitude = models.FloatField(verbose_name='широта', null=True, blank=True)
-    longitude = models.FloatField(verbose_name='долгота', null=True, blank=True)
 
     class Meta:
         verbose_name = 'ресторан'
@@ -83,7 +80,7 @@ class Product(models.Model):
         verbose_name='цена',
         max_digits=8,
         decimal_places=2,
-        validators=[MinValueValidator(0)]
+        validators=[MinValueValidator(0.01)]
     )
     image = models.ImageField(
         verbose_name='картинка',
@@ -134,9 +131,7 @@ class RestaurantMenuItem(models.Model):
     class Meta:
         verbose_name = 'пункт меню ресторана'
         verbose_name_plural = 'пункты меню ресторана'
-        unique_together = [
-            ['restaurant', 'product']
-        ]
+        unique_together = [['restaurant', 'product']]
 
     def __str__(self):
         return f"{self.restaurant.name} - {self.product.name}"
@@ -146,6 +141,25 @@ class OrderQuerySet(models.QuerySet):
     def with_total_price(self):
         return self.annotate(
             total_price=Sum(F('items__price') * F('items__quantity'))
+        )
+
+    def with_available_restaurants(self):
+        order_ids = self.values_list('id', flat=True)
+        order_products = OrderItem.objects.filter(order__in=order_ids).values('order_id', 'product_id')
+        
+        available_restaurants = (
+            RestaurantMenuItem.objects
+            .filter(availability=True)
+            .values('restaurant')
+            .annotate(product_count=Count('product'))
+            .filter(product_count=Count('product', filter=Q(product__order_items__order__in=order_ids)))
+        )
+        
+        return self.prefetch_related(
+            models.Prefetch(
+                'restaurant',
+                queryset=Restaurant.objects.filter(id__in=available_restaurants.values('restaurant'))
+            )
         )
 
 
@@ -222,7 +236,8 @@ class Order(models.Model):
         verbose_name='Способ оплаты',
         max_length=20,
         choices=PAYMENT_METHOD_CHOICES,
-        default='CASH',
+        blank=False,
+        null=False,
         db_index=True
     )
     restaurant = models.ForeignKey(
@@ -233,16 +248,6 @@ class Order(models.Model):
         null=True,
         blank=True,
         db_index=True
-    )
-    latitude = models.FloatField(
-        verbose_name='Широта адреса доставки',
-        null=True,
-        blank=True
-    )
-    longitude = models.FloatField(
-        verbose_name='Долгота адреса доставки',
-        null=True,
-        blank=True
     )
 
     objects = OrderQuerySet.as_manager()
@@ -256,16 +261,9 @@ class Order(models.Model):
         return f'Заказ {self.id} ({self.firstname} {self.lastname})'
 
     def available_restaurants(self):
-        from .models import RestaurantMenuItem
-        menu_items = RestaurantMenuItem.objects.filter(availability=True).select_related('restaurant', 'product')
-        product_ids = {item.product.id for item in self.items.all()}
-        restaurants = {}
-        for menu_item in menu_items:
-            if menu_item.product.id in product_ids:
-                if menu_item.restaurant.id not in restaurants:
-                    restaurants[menu_item.restaurant.id] = set()
-                restaurants[menu_item.restaurant.id].add(menu_item.product.id)
-        return [menu_item.restaurant for r_id, prods in restaurants.items() if prods == product_ids]
+        if hasattr(self, '_prefetched_objects_cache') and 'restaurant' in self._prefetched_objects_cache:
+            return self._prefetched_objects_cache['restaurant']
+        return []
 
 
 class OrderItem(models.Model):
@@ -295,7 +293,7 @@ class OrderItem(models.Model):
         verbose_name='Цена на момент заказа',
         max_digits=8,
         decimal_places=2,
-        validators=[MinValueValidator(0)],
+        validators=[MinValueValidator(0.01)],
         blank=False,
         null=False
     )
