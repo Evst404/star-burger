@@ -1,30 +1,14 @@
 from django.db import models
 from django.core.validators import MinValueValidator
-from django.db.models import F, Sum, Count, Q
+from django.db.models import F, Sum
 from phonenumber_field.modelfields import PhoneNumberField
+from collections import defaultdict
 
 
 class Restaurant(models.Model):
-    name = models.CharField(
-        verbose_name='название',
-        max_length=50,
-        blank=False,
-        null=False
-    )
-    address = models.CharField(
-        verbose_name='адрес',
-        max_length=100,
-        blank=True,
-        null=False,
-        default=''
-    )
-    contact_phone = models.CharField(
-        verbose_name='контактный телефон',
-        max_length=50,
-        blank=True,
-        null=False,
-        default=''
-    )
+    name = models.CharField(verbose_name='название', max_length=50, blank=False, null=False)
+    address = models.CharField(verbose_name='адрес', max_length=100, blank=True, null=False, default='')
+    contact_phone = models.CharField(verbose_name='контактный телефон', max_length=50, blank=True, null=False, default='')
 
     class Meta:
         verbose_name = 'ресторан'
@@ -36,21 +20,12 @@ class Restaurant(models.Model):
 
 class ProductQuerySet(models.QuerySet):
     def available(self):
-        products = (
-            RestaurantMenuItem.objects
-            .filter(availability=True)
-            .values_list('product')
-        )
+        products = RestaurantMenuItem.objects.filter(availability=True).values_list('product')
         return self.filter(pk__in=products)
 
 
 class ProductCategory(models.Model):
-    name = models.CharField(
-        verbose_name='название',
-        max_length=50,
-        blank=False,
-        null=False
-    )
+    name = models.CharField(verbose_name='название', max_length=50, blank=False, null=False)
 
     class Meta:
         verbose_name = 'категория'
@@ -61,13 +36,7 @@ class ProductCategory(models.Model):
 
 
 class Product(models.Model):
-    name = models.CharField(
-        verbose_name='название',
-        max_length=50,
-        blank=False,
-        null=False,
-        unique=True
-    )
+    name = models.CharField(verbose_name='название', max_length=50, blank=False, null=False, unique=True)
     category = models.ForeignKey(
         ProductCategory,
         verbose_name='категория',
@@ -76,28 +45,10 @@ class Product(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
     )
-    price = models.DecimalField(
-        verbose_name='цена',
-        max_digits=8,
-        decimal_places=2,
-        validators=[MinValueValidator(0.01)]
-    )
-    image = models.ImageField(
-        verbose_name='картинка',
-        blank=False,
-        null=False
-    )
-    special_status = models.BooleanField(
-        verbose_name='спец.предложение',
-        default=False,
-        db_index=True,
-    )
-    description = models.TextField(
-        verbose_name='описание',
-        blank=True,
-        null=False,
-        default=''
-    )
+    price = models.DecimalField(verbose_name='цена', max_digits=8, decimal_places=2, validators=[MinValueValidator(0.01)])
+    image = models.ImageField(verbose_name='картинка', blank=False, null=False)
+    special_status = models.BooleanField(verbose_name='спец.предложение', default=False, db_index=True)
+    description = models.TextField(verbose_name='описание', blank=True, null=False, default='')
 
     objects = ProductQuerySet.as_manager()
 
@@ -118,15 +69,11 @@ class RestaurantMenuItem(models.Model):
     )
     product = models.ForeignKey(
         Product,
-        on_delete=models.CASCADE,
         related_name='menu_items',
         verbose_name='продукт',
+        on_delete=models.CASCADE,
     )
-    availability = models.BooleanField(
-        verbose_name='в продаже',
-        default=True,
-        db_index=True
-    )
+    availability = models.BooleanField(verbose_name='в продаже', default=True, db_index=True)
 
     class Meta:
         verbose_name = 'пункт меню ресторана'
@@ -139,32 +86,26 @@ class RestaurantMenuItem(models.Model):
 
 class OrderQuerySet(models.QuerySet):
     def with_total_price(self):
-        return self.annotate(
-            total_price=Sum(F('items__price') * F('items__quantity'))
-        )
+        return self.annotate(total_price=Sum(F('items__price') * F('items__quantity')))
 
     def with_available_restaurants(self):
-        order_ids = self.values_list('id', flat=True)
-        order_products = OrderItem.objects.filter(order__in=order_ids).values('order_id', 'product_id')
-        
-        available_restaurants = (
-            RestaurantMenuItem.objects
-            .filter(availability=True)
-            .values('restaurant')
-            .annotate(product_count=Count('product'))
-            .filter(product_count=Count('product', filter=Q(product__order_items__order__in=order_ids)))
-        )
-        
-        return self.prefetch_related(
-            models.Prefetch(
-                'restaurant',
-                queryset=Restaurant.objects.filter(id__in=available_restaurants.values('restaurant'))
-            )
-        )
+        menu_items = RestaurantMenuItem.objects.filter(availability=True).select_related('restaurant', 'product')
+        restaurant_products = defaultdict(set)
+        for item in menu_items:
+            restaurant_products[item.restaurant_id].add(item.product_id)
+
+        for order in self.prefetch_related('items__product'):
+            order_products = set(item.product_id for item in order.items.all())
+            order.available_restaurants_list = [
+                Restaurant.objects.get(id=rid) for rid in restaurant_products
+                if order_products.issubset(restaurant_products[rid])
+            ]
+        return self
 
 
 class Order(models.Model):
     STATUS_CHOICES = [
+        ('UNPROCESSED', 'Необработан'),
         ('NEW', 'Принят'),
         ('COOKING', 'Готовится'),
         ('DELIVERING', 'Доставляется'),
@@ -175,63 +116,15 @@ class Order(models.Model):
         ('ONLINE', 'Электронно'),
     ]
 
-    firstname = models.CharField(
-        verbose_name='Имя',
-        max_length=50,
-        blank=False,
-        null=False,
-        db_index=True
-    )
-    lastname = models.CharField(
-        verbose_name='Фамилия',
-        max_length=50,
-        blank=False,
-        null=False,
-        db_index=True
-    )
-    phonenumber = PhoneNumberField(
-        verbose_name='Номер телефона',
-        blank=False,
-        null=False,
-        db_index=True
-    )
-    address = models.CharField(
-        verbose_name='Адрес доставки',
-        max_length=200,
-        blank=False,
-        null=False,
-        db_index=True
-    )
-    status = models.CharField(
-        verbose_name='Статус',
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='NEW',
-        db_index=True
-    )
-    comment = models.TextField(
-        verbose_name='Комментарий',
-        blank=True,
-        null=False,
-        default=''
-    )
-    created_at = models.DateTimeField(
-        verbose_name='Дата создания',
-        auto_now_add=True,
-        db_index=True
-    )
-    called_at = models.DateTimeField(
-        verbose_name='Дата звонка',
-        null=True,
-        blank=True,
-        db_index=True
-    )
-    delivered_at = models.DateTimeField(
-        verbose_name='Дата доставки',
-        null=True,
-        blank=True,
-        db_index=True
-    )
+    firstname = models.CharField(verbose_name='Имя', max_length=50, blank=False, null=False, db_index=True)
+    lastname = models.CharField(verbose_name='Фамилия', max_length=50, blank=False, null=False, db_index=True)
+    phonenumber = PhoneNumberField(verbose_name='Номер телефона', blank=False, null=False, db_index=True)
+    address = models.CharField(verbose_name='Адрес доставки', max_length=200, blank=False, null=False, db_index=True)
+    status = models.CharField(verbose_name='Статус', max_length=20, choices=STATUS_CHOICES, default='UNPROCESSED', db_index=True)
+    comment = models.TextField(verbose_name='Комментарий', blank=True, null=False, default='')
+    created_at = models.DateTimeField(verbose_name='Дата создания', auto_now_add=True, db_index=True)
+    called_at = models.DateTimeField(verbose_name='Дата звонка', null=True, blank=True, db_index=True)
+    delivered_at = models.DateTimeField(verbose_name='Дата доставки', null=True, blank=True, db_index=True)
     payment_method = models.CharField(
         verbose_name='Способ оплаты',
         max_length=20,
@@ -261,25 +154,23 @@ class Order(models.Model):
         return f'Заказ {self.id} ({self.firstname} {self.lastname})'
 
     def available_restaurants(self):
-        if hasattr(self, '_prefetched_objects_cache') and 'restaurant' in self._prefetched_objects_cache:
-            return self._prefetched_objects_cache['restaurant']
-        return []
+        return getattr(self, 'available_restaurants_list', [])
 
 
 class OrderItem(models.Model):
     order = models.ForeignKey(
         Order,
         verbose_name='Заказ',
-        on_delete=models.CASCADE,
         related_name='items',
+        on_delete=models.CASCADE,
         blank=False,
         null=False
     )
     product = models.ForeignKey(
         Product,
         verbose_name='Продукт',
-        on_delete=models.PROTECT,
         related_name='order_items',
+        on_delete=models.PROTECT,
         blank=False,
         null=False
     )

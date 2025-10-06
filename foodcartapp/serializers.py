@@ -19,29 +19,12 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return value
 
 
-class OrderReadSerializer(serializers.ModelSerializer):
-    product = serializers.ReadOnlyField(source='product.name')
-
-    class Meta:
-        model = OrderItem
-        fields = ['product', 'quantity', 'price']
-
-
 class OrderSerializer(serializers.ModelSerializer):
-    products = OrderItemSerializer(many=True, source='items', allow_empty=False, write_only=True)
-    items = OrderReadSerializer(many=True, read_only=True)
-    firstname = serializers.CharField(max_length=50, allow_blank=False)
-    lastname = serializers.CharField(max_length=50, allow_blank=False)
-    phonenumber = serializers.CharField(allow_blank=False)
-    address = serializers.CharField(max_length=200, allow_blank=False)
-    status = serializers.CharField(read_only=True)
-    comment = serializers.CharField(allow_blank=True, required=False)
-    created_at = serializers.DateTimeField(read_only=True)
-    called_at = serializers.DateTimeField(read_only=True)
-    delivered_at = serializers.DateTimeField(read_only=True)
+    products = OrderItemSerializer(many=True, source='items', allow_empty=False)
     payment_method = serializers.ChoiceField(
         choices=Order.PAYMENT_METHOD_CHOICES,
-        required=True
+        required=False,
+        default='CASH'
     )
     restaurant = serializers.PrimaryKeyRelatedField(
         queryset=Restaurant.objects.all(),
@@ -51,22 +34,22 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ['id', 'firstname', 'lastname', 'phonenumber', 'address', 'products', 'items', 'status', 'comment', 'created_at', 'called_at', 'delivered_at', 'payment_method', 'restaurant']
-
-    def validate_products(self, value):
-        if not isinstance(value, list):
-            raise serializers.ValidationError("Ожидался list со значениями, но был получен \"{}\"".format(type(value).__name__))
-        return value
-
-    def validate_firstname(self, value):
-        if not isinstance(value, str):
-            raise serializers.ValidationError("Not a valid string.")
-        return value
-
-    def validate_lastname(self, value):
-        if not isinstance(value, str):
-            raise serializers.ValidationError("Not a valid string.")
-        return value
+        fields = [
+            'id',
+            'firstname',
+            'lastname',
+            'phonenumber',
+            'address',
+            'products',
+            'status',
+            'comment',
+            'created_at',
+            'called_at',
+            'delivered_at',
+            'payment_method',
+            'restaurant',
+        ]
+        read_only_fields = ['status', 'created_at', 'called_at', 'delivered_at']
 
     def validate_phonenumber(self, value):
         if not value:
@@ -77,16 +60,6 @@ class OrderSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Введен некорректный номер телефона.")
         except Exception:
             raise serializers.ValidationError("Введен некорректный номер телефона.")
-        return value
-
-    def validate_address(self, value):
-        if not isinstance(value, str):
-            raise serializers.ValidationError("Not a valid string.")
-        return value
-
-    def validate_comment(self, value):
-        if not isinstance(value, str):
-            raise serializers.ValidationError("Not a valid string.")
         return value
 
     def create(self, validated_data):

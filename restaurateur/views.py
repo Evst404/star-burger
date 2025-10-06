@@ -6,35 +6,26 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import views as auth_views
 from foodcartapp.models import Product, Restaurant, Order
-from geopy.distance import geodesic
 from places.models import Place
 from places.utils import geocode_addresses
-
+from geopy.distance import geodesic
 
 
 class Login(forms.Form):
     username = forms.CharField(
         label='Логин', max_length=75, required=True,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Укажите имя пользователя'
-        })
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Укажите имя пользователя'})
     )
     password = forms.CharField(
         label='Пароль', max_length=75, required=True,
-        widget=forms.PasswordInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Введите пароль'
-        })
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Введите пароль'})
     )
 
 
 class LoginView(View):
     def get(self, request, *args, **kwargs):
         form = Login()
-        return render(request, "login.html", context={
-            'form': form
-        })
+        return render(request, "login.html", context={'form': form})
 
     def post(self, request):
         form = Login(request.POST)
@@ -47,10 +38,7 @@ class LoginView(View):
                 if user.is_staff:
                     return redirect("restaurateur:RestaurantView")
                 return redirect("start_page")
-        return render(request, "login.html", context={
-            'form': form,
-            'ivalid': True,
-        })
+        return render(request, "login.html", context={'form': form, 'ivalid': True})
 
 
 class LogoutView(auth_views.LogoutView):
@@ -69,10 +57,8 @@ def view_products(request):
     for product in products:
         availability = {item.restaurant_id: item.availability for item in product.menu_items.all()}
         ordered_availability = [availability.get(restaurant.id, False) for restaurant in restaurants]
-        products_with_restaurant_availability.append(
-            (product, ordered_availability)
-        )
-    return render(request, template_name="products_list.html", context={
+        products_with_restaurant_availability.append((product, ordered_availability))
+    return render(request, "products_list.html", context={
         'products_with_restaurant_availability': products_with_restaurant_availability,
         'restaurants': restaurants,
     })
@@ -80,39 +66,30 @@ def view_products(request):
 
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_restaurants(request):
-    return render(request, template_name="restaurants_list.html", context={
+    return render(request, "restaurants_list.html", context={
         'restaurants': Restaurant.objects.all(),
     })
 
 
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_orders(request):
-    orders = Order.objects.with_total_price().with_available_restaurants().exclude(status='COMPLETED').order_by('-id')
-    
-    addresses = set()
-    for order in orders:
-        addresses.add(order.address)
-        order.available_restaurants_list = order.available_restaurants()
-        for restaurant in order.available_restaurants_list:
-            addresses.add(restaurant.address)
-    
-    geocode_addresses(addresses)
+    orders = Order.objects.with_total_price().with_available_restaurants().exclude(status='COMPLETED')\
+        .order_by('-id').prefetch_related('items__product', 'restaurant')
+    addresses = list(orders.values_list('address', flat=True).distinct())
+    addresses.extend(Restaurant.objects.values_list('address', flat=True).distinct())
+    places = Place.objects.filter(address__in=addresses)
+    place_coords = {place.address: (place.latitude, place.longitude) for place in places}
+    coords = geocode_addresses(addresses)
     
     for order in orders:
-        order_place = Place.objects.get(address=order.address)
-        order.latitude = order_place.latitude
-        order.longitude = order_place.longitude
-        for restaurant in order.available_restaurants_list:
-            restaurant_place = Place.objects.get(address=restaurant.address)
-            restaurant.latitude = restaurant_place.latitude
-            restaurant.longitude = restaurant_place.longitude
-            if order.latitude and order.longitude and restaurant.latitude and restaurant.longitude:
-                distance = geodesic((order.latitude, order.longitude), (restaurant.latitude, restaurant.longitude)).km
-                restaurant.distance_km = round(distance, 1)
-            else:
-                restaurant.distance_km = None
-        order.available_restaurants_list = sorted(order.available_restaurants_list, key=lambda r: r.distance_km or float('inf'))
+        order_coords = place_coords.get(order.address, coords.get(order.address, (None, None)))
+        for restaurant in order.available_restaurants():
+            rest_coords = place_coords.get(restaurant.address, coords.get(restaurant.address, (None, None)))
+            if order_coords != (None, None) and rest_coords != (None, None):
+                try:
+                    distance = round(geodesic(order_coords, rest_coords).km, 1)
+                    setattr(restaurant, 'distance_km', distance)
+                except ValueError:
+                    setattr(restaurant, 'distance_km', None)
     
-    return render(request, template_name='order_items.html', context={
-        'order_items': orders
-    })
+    return render(request, 'order_items.html', context={'order_items': orders})

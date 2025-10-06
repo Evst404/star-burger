@@ -4,10 +4,14 @@ from rest_framework import status
 from django.templatetags.static import static
 from .models import Product
 from .serializers import OrderSerializer
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(['GET'])
-def banners_list_api(request):
+def banners_list_api(request):  
     return Response([
         {
             'title': 'Burger',
@@ -28,8 +32,8 @@ def banners_list_api(request):
 
 
 @api_view(['GET'])
-def product_list_api(request):
-    products = Product.objects.select_related('category').available()
+def product_list_api(request):  
+    products = Product.objects.select_related('category').available().prefetch_related('menu_items__restaurant')
     serialized_products = [
         {
             'id': product.id,
@@ -42,21 +46,24 @@ def product_list_api(request):
                 'name': product.category.name,
             } if product.category else None,
             'image': product.image.url,
-            'restaurant': {
-                'id': product.id,
-                'name': product.name,
-            }
-        }
-        for product in products
+            'restaurants': [
+                {
+                    'id': menu_item.restaurant.id,
+                    'name': menu_item.restaurant.name,
+                } for menu_item in product.menu_items.filter(availability=True)
+            ]
+        } for product in products
     ]
     return Response(serialized_products)
 
 
 @api_view(['POST'])
 def register_order(request):
+    logger.info(f"Получен запрос на создание заказа: {request.data}")
     serializer = OrderSerializer(data=request.data)
     if serializer.is_valid():
         order = serializer.save()
-        print("Полученные данные заказа:", serializer.validated_data)
+        logger.info(f"Заказ успешно создан: {OrderSerializer(order).data}")
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+    logger.error(f"Ошибка валидации заказа: {serializer.errors}")
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
