@@ -73,23 +73,33 @@ def view_restaurants(request):
 
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_orders(request):
-    orders = Order.objects.with_total_price().with_available_restaurants().exclude(status='COMPLETED')\
-        .order_by('-id').prefetch_related('items__product', 'restaurant')
+    orders = Order.objects.with_total_price().exclude(status='COMPLETED').order_by('-id').select_related('restaurant').prefetch_related('items__product').with_available_restaurants()
     addresses = list(orders.values_list('address', flat=True).distinct())
     addresses.extend(Restaurant.objects.values_list('address', flat=True).distinct())
     places = Place.objects.filter(address__in=addresses)
     place_coords = {place.address: (place.latitude, place.longitude) for place in places}
     coords = geocode_addresses(addresses)
-    
+
     for order in orders:
         order_coords = place_coords.get(order.address, coords.get(order.address, (None, None)))
-        for restaurant in order.available_restaurants():
+        available_restaurants = getattr(order, 'available_restaurants', [])
+        restaurants_with_distances = []
+        for restaurant in available_restaurants:
             rest_coords = place_coords.get(restaurant.address, coords.get(restaurant.address, (None, None)))
+            distance = None
             if order_coords != (None, None) and rest_coords != (None, None):
                 try:
                     distance = round(geodesic(order_coords, rest_coords).km, 1)
-                    setattr(restaurant, 'distance_km', distance)
                 except ValueError:
-                    setattr(restaurant, 'distance_km', None)
-    
+                    distance = None
+            restaurants_with_distances.append({
+                'restaurant': restaurant,
+                'distance_km': distance
+            })
+        restaurants_with_distances = sorted(
+            restaurants_with_distances,
+            key=lambda r: r['distance_km'] if r['distance_km'] is not None else float('inf')
+        )
+        setattr(order, 'available_restaurants', restaurants_with_distances)
+
     return render(request, 'order_items.html', context={'order_items': orders})

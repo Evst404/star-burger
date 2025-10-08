@@ -24,9 +24,6 @@ class RestaurantAdmin(admin.ModelAdmin):
     list_display = ['name', 'address', 'contact_phone']
     inlines = [RestaurantMenuItemInline]
 
-    def save_model(self, request, obj, form, change):
-        super().save_model(request, obj, form, change)
-
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -134,7 +131,7 @@ class OrderAdmin(admin.ModelAdmin):
         if db_field.name == 'restaurant' and request.resolver_match.args:
             order_id = request.resolver_match.args[0]
             order = Order.objects.get(pk=order_id)
-            available_restaurants = order.available_restaurants()
+            available_restaurants = getattr(order, 'available_restaurants', [])
             kwargs['queryset'] = Restaurant.objects.filter(pk__in=[r.id for r in available_restaurants])
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 

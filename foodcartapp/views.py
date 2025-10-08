@@ -63,7 +63,8 @@ def register_order(request):
     serializer = OrderSerializer(data=request.data)
     if serializer.is_valid():
         order = serializer.save()
-        logger.info(f"Заказ успешно создан: {OrderSerializer(order).data}")
-        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+        output_serializer = OrderSerializer(order)
+        logger.info(f"Заказ успешно создан: {output_serializer.data}")
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
     logger.error(f"Ошибка валидации заказа: {serializer.errors}")
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
