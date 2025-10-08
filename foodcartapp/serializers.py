@@ -2,7 +2,6 @@ from django.db import transaction
 from rest_framework import serializers
 from phonenumber_field.phonenumber import PhoneNumber
 from .models import Order, OrderItem, Product
-import re
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -47,16 +46,6 @@ class OrderSerializer(serializers.ModelSerializer):
         except Exception:
             raise serializers.ValidationError("Введен некорректный номер телефона.")
         return value
-
-    def validate_address(self, value):
-        if not value:
-            raise serializers.ValidationError("Адрес не может быть пустым.")
-        pattern = r'^\s*[А-Яа-яЁёA-Za-z\s]+,\s*[А-Яа-яЁёA-Za-z\s\.]+\s*\d+[А-Яа-яЁё]?\s*$'
-        if not re.match(pattern, value.strip()):
-            raise serializers.ValidationError(
-                "Адрес должен быть в формате: 'Город, улица, номер дома' (например, 'Москва, ул. Ленина, 1')."
-            )
-        return value.strip()
 
     def create(self, validated_data):
         with transaction.atomic():
