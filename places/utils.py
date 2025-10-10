@@ -1,10 +1,11 @@
 import logging
-import requests
 import time
+
+import requests
 from django.conf import settings
 from django.utils import timezone
-from .models import Place
 
+from .models import Place
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +19,12 @@ def geocode_addresses(addresses):
     logger.info(f"Геокодирование {len(addresses_list)} адресов")
 
     existing_places = Place.objects.filter(address__in=addresses_list)
-    existing_coords = {place.address: (place.latitude, place.longitude) for place in existing_places}
-
-    addresses_to_geocode = [addr for addr in addresses_list if addr not in existing_coords or not all(existing_coords[addr])]
+    existing_coords = {
+        place.address: (place.latitude, place.longitude) for place in existing_places
+    }
+    addresses_to_geocode = [
+        addr for addr in addresses_list if addr not in existing_coords or not all(existing_coords[addr])
+    ]
     results = {addr: existing_coords.get(addr, (None, None)) for addr in addresses_list}
 
     for address in addresses_to_geocode:
@@ -29,7 +33,7 @@ def geocode_addresses(addresses):
         params = {
             "apikey": settings.YANDEX_GEOCODER_API_KEY,
             "geocode": address,
-            "format": "json"
+            "format": "json",
         }
         try:
             response = requests.get(base_url, params=params, timeout=5)
@@ -39,23 +43,38 @@ def geocode_addresses(addresses):
                 continue
             response.raise_for_status()
             payload = response.json()
-            found_places = payload.get('response', {}).get('GeoObjectCollection', {}).get('featureMember')
+            found_places = payload.get("response", {}).get(
+                "GeoObjectCollection", {}
+            ).get("featureMember")
             if not found_places:
                 results[address] = (None, None)
                 continue
-            feature = found_places[0].get('GeoObject', {})
-            precision = feature.get('metaDataProperty', {}).get('GeocoderMetaData', {}).get('precision', '')
-            if precision == 'exact':
-                point = feature.get('Point', {}).get('pos', '')
-                if point:
-                    lon, lat = map(float, point.split())
-                    results[address] = (lat, lon)
-                    Place.objects.update_or_create(
-                        address=address,
-                        defaults={'latitude': lat, 'longitude': lon, 'last_updated': timezone.now()}
+            feature = found_places[0].get("GeoObject", {})
+            precision = feature.get("metaDataProperty", {}).get(
+                "GeocoderMetaData", {}
+            ).get("precision", "")
+            point = feature.get("Point", {}).get("pos", "")
+            if point:
+                lon, lat = map(float, point.split())
+                if (
+                    precision != "exact"
+                    and "locality"
+                    in feature.get("metaDataProperty", {})
+                    .get("GeocoderMetaData", {})
+                    .get("kind", "")
+                ):
+                    logger.info(
+                        f"Адрес {address} определён как город, используются примерные координаты"
                     )
-                else:
-                    results[address] = (None, None)
+                results[address] = (lat, lon)
+                Place.objects.update_or_create(
+                    address=address,
+                    defaults={
+                        "latitude": lat,
+                        "longitude": lon,
+                        "last_updated": timezone.now(),
+                    },
+                )
             else:
                 results[address] = (None, None)
             time.sleep(0.1)
