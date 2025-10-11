@@ -7,77 +7,77 @@
     <h2>Необработанные заказы</h2>
   </center>
 
-  <hr/>
-  <br/>
-  <br/>
+  <hr>
+  <br>
+  <br>
   <div class="container">
-   <table class="table table-responsive">
-    <tr>
-      <th>ID заказа</th>
-      <th>Клиент</th>
-      <th>Телефон</th>
-      <th>Адрес доставки</th>
-      <th>Продукты</th>
-      <th>Стоимость</th>
-      <th>Статус</th>
-      <th>Комментарий</th>
-      <th>Дата создания</th>
-      <th>Дата звонка</th>
-      <th>Дата доставки</th>
-      <th>Способ оплаты</th>
-      <th>Ресторан</th>
-      <th>Редактировать</th>
-    </tr>
+    <table class="table table-responsive">
+      <tr>
+        <th>ID заказа</th>
+        <th>Клиент</th>
+        <th>Телефон</th>
+        <th>Адрес доставки</th>
+        <th>Продукты</th>
+        <th>Стоимость</th>
+        <th>Статус</th>
+        <th>Комментарий</th>
+        <th>Дата создания</th>
+        <th>Дата звонка</th>
+        <th>Дата доставки</th>
+        <th>Способ оплаты</th>
+        <th>Ресторан</th>
+        <th>Редактировать</th>
+      </tr>
 
-    {% for item in order_items %}
-      <tr>
-        <td>{{ item.id }}</td>
-        <td>{{ item.firstname }} {{ item.lastname }}</td>
-        <td>{{ item.phonenumber }}</td>
-        <td>{{ item.address }}</td>
-        <td>
-          {% for order_item in item.items.all %}
-            {{ order_item.product.name }} ({{ order_item.quantity }} шт., {{ order_item.price|floatformat:2 }} ₽){% if not forloop.last %}, {% endif %}
-          {% empty %}
-            Нет позиций
-          {% endfor %}
-        </td>
-        <td>{{ item.total_price|floatformat:2|default:"0.00" }} ₽</td>
-        <td>{{ item.get_status_display }}</td>
-        <td>{{ item.comment|default:"—" }}</td>
-        <td>{{ item.created_at|date:"Y-m-d H:i" }}</td>
-        <td>{{ item.called_at|date:"Y-m-d H:i"|default:"—" }}</td>
-        <td>{{ item.delivered_at|date:"Y-m-d H:i"|default:"—" }}</td>
-        <td>{{ item.get_payment_method_display }}</td>
-        <td>
-          {% if item.restaurant %}
-            {{ item.restaurant.name }}
-          {% else %}
-            <details>
-              <summary>Доступные рестораны</summary>
-              {% for entry in item.available_restaurants %}
-                {{ entry.restaurant.name }}
-                {% if entry.display_distance is not None %}
-                  ({{ entry.display_distance|floatformat:1 }} {{ entry.distance_unit }})
-                {% else %}
-                  (расстояние неизвестно)
-                {% endif %}
-                {% if not forloop.last %}, {% endif %}
-              {% empty %}
-                Нет доступных ресторанов
-              {% endfor %}
-            </details>
-          {% endif %}
-        </td>
-        <td>
-          <a href="{% url 'admin:foodcartapp_order_change' item.id %}?next={{ request.path|urlencode }}">Редактировать</a>
-        </td>
-      </tr>
-    {% empty %}
-      <tr>
-        <td colspan="14">Нет заказов</td>
-      </tr>
-    {% endfor %}
-   </table>
+      {% for item in order_items %}
+        <tr>
+          <td>{{ item.id }}</td>
+          <td>{{ item.firstname }} {{ item.lastname }}</td>
+          <td>{{ item.phonenumber }}</td>
+          <td>{{ item.address }}</td>
+          <td>
+            {% for order_item in item.items.all %}
+              {{ order_item.product.name }} ({{ order_item.quantity }} шт., {{ order_item.price|floatformat:2 }} ₽){% if not forloop.last %}, {% endif %}
+            {% empty %}
+              Нет позиций
+            {% endfor %}
+          </td>
+          <td>{{ item.total_price|floatformat:2|default:"0.00" }} ₽</td>
+          <td>{{ item.get_status_display }}</td>
+          <td>{{ item.comment|default:"—" }}</td>
+          <td>{{ item.created_at|date:"Y-m-d H:i" }}</td>
+          <td>{{ item.called_at|date:"Y-m-d H:i"|default:"—" }}</td>
+          <td>{{ item.delivered_at|date:"Y-m-d H:i"|default:"—" }}</td>
+          <td>{{ item.get_payment_method_display }}</td>
+          <td>
+            {% if item.restaurant %}
+              {{ item.restaurant.name }}
+            {% else %}
+              <details>
+                <summary>Доступные рестораны</summary>
+                {% for entry in item.available_restaurants %}
+                  {{ entry.restaurant.name }}
+                  {% if entry.display_distance is not None %}
+                    ({{ entry.display_distance|floatformat:1 }} {{ entry.distance_unit }})
+                  {% else %}
+                    ({{ entry.distance_unit }})
+                  {% endif %}
+                  {% if not forloop.last %}, {% endif %}
+                {% empty %}
+                  Нет доступных ресторанов
+                {% endfor %}
+              </details>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'admin:foodcartapp_order_change' item.id %}?next={{ request.path|urlencode }}">Редактировать</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="14">Нет заказов</td>
+        </tr>
+      {% endfor %}
+    </table>
   </div>
 {% endblock %}

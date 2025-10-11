@@ -116,10 +116,11 @@ def view_orders(request):
                 rest_coords = place_coords.get(
                     restaurant.address, coords.get(restaurant.address)
                 )
-                distance = None
-                display_distance = None
-                distance_unit = None
-                if order_coords and rest_coords:
+                if not order_coords or not rest_coords or None in order_coords or None in rest_coords:
+                    distance = None
+                    display_distance = None
+                    distance_unit = "Адрес не найден"
+                else:
                     try:
                         distance = geodesic(order_coords, rest_coords).meters
                         if distance > 100:
@@ -129,7 +130,9 @@ def view_orders(request):
                             display_distance = round(distance)
                             distance_unit = "м"
                     except ValueError:
-                        pass
+                        distance = None
+                        display_distance = None
+                        distance_unit = "Адрес не найден"
             restaurants_with_distances.append(
                 {
                     "restaurant": restaurant,
