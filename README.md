@@ -150,6 +150,34 @@ Parcel будет следить за файлами в каталоге `bundle
 - `ALLOWED_HOSTS` — [см. документацию Django](https://docs.djangoproject.com/en/5.2/ref/settings/#allowed-hosts)
 - YANDEX_GEOCODER_API_KEY=your_yandex_api_key - Ключ для Гео
 
+  ## Мониторинг ошибок с Rollbar
+
+1. Установите Rollbar:
+   ```
+   pip install rollbar
+   ```
+2. Добавьте в MIDDLEWARE в settings.py:
+```
+python'rollbar.contrib.django.middleware.RollbarNotifierMiddleware',
+```
+
+4. Добавьте в settings.py:
+```
+import rollbar
+
+ROLLBAR = {
+    'access_token': env('ROLLBAR_ACCESS_TOKEN'),
+    'environment': 'development' if DEBUG else 'production',
+    'root': BASE_DIR,
+    'code_version': '1.0.0', - # версия Roolbar
+}
+
+rollbar.init(**ROLLBAR)
+```
+
+4. Добавить токен в .env
+```ROLLBAR_ACCESS_TOKEN=your_token_here```
+
 ## Цели проекта
 
 Код написан в учебных целях — это урок в курсе по Python и веб-разработке на сайте [Devman](https://dvmn.org). За основу был взят код проекта [FoodCart](https://github.com/Saibharath79/FoodCart).
