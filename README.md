@@ -169,7 +169,7 @@ ROLLBAR = {
     'access_token': env('ROLLBAR_ACCESS_TOKEN'),
     'environment': 'development' if DEBUG else 'production',
     'root': BASE_DIR,
-    'code_version': '1.0.0', - # версия Roolbar
+    'code_version': '1.3.0', - # версия Roolbar
 }
 
 rollbar.init(**ROLLBAR)
@@ -177,6 +177,46 @@ rollbar.init(**ROLLBAR)
 
 4. Добавить токен в .env
 ```ROLLBAR_ACCESS_TOKEN=your_token_here```
+
+## Настройка PostgreSQL
+
+1. Установите PostgreSQL:
+   ```
+   sudo apt install postgresql postgresql-contrib
+   ```
+
+2. Создайте базу данных и пользователя:
+```
+CREATE DATABASE star_burger_prod;
+CREATE USER star_burger_user WITH PASSWORD 'your_password';
+ALTER ROLE star_burger_user SET client_encoding TO 'utf8';
+ALTER ROLE star_burger_user SET default_transaction_isolation TO 'read committed';
+ALTER ROLE star_burger_user SET timezone TO 'UTC';
+GRANT ALL PRIVILEGES ON DATABASE star_burger_prod TO star_burger_user;
+\q
+```
+
+3. Установите psycopg2:
+```
+install psycopg2-binary
+```
+4. Добавьте в .env:
+```
+   DATABASE_URL=postgres://star_burger_user:Malina96@localhost:5432/star_burger_prod
+```
+5. Выгрузите данные из SQLite:
+```
+python manage.py dumpdata > data.json
+```
+6. Примените миграции и загрузите данные:
+```
+manage.py migrate
+python manage.py loaddata data.json
+```
+7. Удалить SQLite
+```
+rm db.sqlite3
+```
 
 ## Цели проекта
 
