@@ -217,6 +217,20 @@ python manage.py loaddata data.json
 ```
 rm db.sqlite3
 ```
+## Быстрое обновление кода на сервере
+
+Подключитесь к серверу:
+
+   ```bash
+   ssh evst404@178.128.196.169
+```
+
+Запустите деплой:
+
+```
+~/deploy_star_burger.sh
+```
+
 
 ## Цели проекта
 
