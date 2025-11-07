@@ -1,16 +1,15 @@
 import os
-
 import dj_database_url
-
 from environs import Env
 from decouple import config
+import rollbar  
 
 
 env = Env()
 env.read_env()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 YANDEX_GEOCODER_API_KEY = config('YANDEX_GEOCODER_API_KEY', default='')
 SECRET_KEY = env('SECRET_KEY')
@@ -42,6 +41,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
+    'rollbar.contrib.django.middleware.RollbarNotifierMiddleware',
 ]
 
 ROOT_URLCONF = 'star_burger.urls'
@@ -106,21 +106,13 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = 'ru-RU'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_L10N = True
-
 USE_TZ = True
 
 STATIC_URL = '/static/'
-
-INTERNAL_IPS = [
-    '127.0.0.1'
-]
-
+INTERNAL_IPS = ['127.0.0.1']
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "assets"),
@@ -130,9 +122,20 @@ STATICFILES_DIRS = [
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer', 
+        'rest_framework.renderers.BrowsableAPIRenderer',
     ],
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
     ],
 }
+
+
+ROLLBAR = {
+    'access_token': env('ROLLBAR_ACCESS_TOKEN', default=None),
+    'environment': env('ROLLBAR_ENVIRONMENT', 'production'),  
+    'root': BASE_DIR,
+    'code_version': '1.3.0',
+}
+
+if ROLLBAR['access_token']:
+    rollbar.init(**ROLLBAR)

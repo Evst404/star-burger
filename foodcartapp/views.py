@@ -68,3 +68,4 @@ def register_order(request):
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
     logger.error(f"Ошибка валидации заказа: {serializer.errors}")
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
