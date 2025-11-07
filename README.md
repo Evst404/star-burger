@@ -238,4 +238,9 @@ rm db.sqlite3
 
 Где используется репозиторий:
 
+<<<<<<< HEAD
 - Второй и третий урок [учебного курса Django](https://dvmn.org/modules/django/)
+=======
+Test deploy for Rollbar — 2025-11-07
+>>>>>>> d38f44a (test Rollbar deploy)
+Test deploy for Rollbar — 2025-11-07
